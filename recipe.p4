@@ -170,6 +170,7 @@ control Ingress(
                         hdr.ipv6.dst_addr[63:32],
                         hdr.ipv6.dst_addr[31:0],
                         hdr.ipv6.next_hdr,
+                        hdr.ipv6.flow_label,
                         meta.hop_count
             });
         }
