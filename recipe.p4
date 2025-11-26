@@ -49,7 +49,6 @@ parser IngressParser(packet_in        pkt,
 
         meta.hop_count = 0;
         meta.idx = 0;
-        meta.hash_id = 0;
         transition parse_ethernet;
     }
     
@@ -135,6 +134,9 @@ control Ingress(
     Hash<bit<32>>(HashAlgorithm_t.CRC32) hash_v4;
     Hash<bit<32>>(HashAlgorithm_t.CRC32) hash_v6;
 
+    action diff(bit<32> a, bit<32> b){
+        meta.res = a - b;
+    }
 
     apply {
         // find the switch id (hop) in the path
@@ -145,9 +147,6 @@ control Ingress(
             meta.hop_count = 255 - hdr.ipv6.hop_limit;
         }
         // recipe header
-        if (!hdr.recipe.isValid()){
-            drop_exit_ingress();
-        }
         if (hdr.ipv4.isValid()){
             hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
             meta.hash_id = hash_v4.get({
@@ -183,14 +182,41 @@ control Ingress(
 
         compute_base();
         meta.idx = meta.idx + (bit<16>) hdr.recipe.xor_degree;
-        a_prob = read_probs_a.execute(idx);
-        r_prob = read_probs_r.execute(idx);
+        meta.a_prob = read_probs_a.execute(idx);
+        meta.r_prob = read_probs_r.execute(idx);
         if (!hdr.recipe.isValid()){
             hdr.recipe.setValid();
             hdr.recipe.pint = 0;
             hdr.recipe.xor_degree = 0;
+            hdr.recipe.switch_id = 0;
+            if (hdr.ipv4.isValid()){
+                hdr.ipv4.protocol = ip_protocol_t.RECIPE;
+            }
+            else if (hdr.ipv6.isValid()){
+                hdr.ipv6.next_hdr = ip_protocol_t.RECIPE;
+            }
         }
-        if (meta.hash_id - a_prob < 0){
+        
+        if (hdr.recipe.isValid()){
+            
+            diff(meta.a_prob, meta.hash_id);
+            if ((meta.hash_id[31:31] == 0 && meta.res[31:31] == 1) || (meta.hash_id[31:31] == 1 && meta.res[31:31] == 0)){
+                hdr.recipe.pint = hdr.recipe.pint ^ (bit<16>) hdr.recipe.switch_id;
+                hdr.recipe.xor_degree = hdr.recipe.xor_degree + 1;
+            }
+            else{
+                bit<32> temp;
+                temp = meta.a_prob +  meta.r_prob;
+                diff(temp, meta.hash_id);
+                if ((meta.hash_id[31:31] == 0 && meta.res[31:31] == 1) || (meta.hash_id[31:31] == 1 && meta.res[31:31] == 0)){
+                    hdr.recipe.pint = (bit<16>) hdr.recipe.switch_id;
+                    hdr.recipe.xor_degree = 1;
+                }
+            }
+        }
+        /*
+
+        if ((int<32>)meta.hash_id < (int<32>)a_prob){
             hdr.recipe.pint = hdr.recipe.pint ^ (bit<16>) meta.hop_count;
             hdr.recipe.xor_degree = hdr.recipe.xor_degree + 1;
         }
@@ -198,6 +224,7 @@ control Ingress(
             hdr.recipe.pint = (bit<16>) meta.hop_count;
             hdr.recipe.xor_degree = 1;
         }
+        */
     }
 }
 
