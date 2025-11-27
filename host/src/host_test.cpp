@@ -24,13 +24,22 @@ constexpr int NUM_PACKETS   = 5;   // number of distinct flows (pktid)
 constexpr int MAX_ITER      = 15;  // safety stop based on hopid (TTL)
 constexpr int NUM_MASK_ITERS = 6;  // how many mask values we use per flow
 
-constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {
+constexpr uint16_t SWITCH_MASK_SEQ_N[NUM_MASK_ITERS] = {
     1,   // 0000 0000 0000 0001
     3,   // 0000 0000 0000 0011
     7,   // 0000 0000 0000 0111
     10,  // 0000 0000 0000 1010
     11,  // 0000 0000 0000 1011
     13   // 0000 0000 0000 1101
+};
+
+constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {
+    (1 << 0),
+    (3 << 2),
+    (7 << 6),
+    (10 << 9),
+    (11 << 12),
+    (13 << 15)
 };
 
 static void ensure_output_directory() {
