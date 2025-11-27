@@ -33,13 +33,22 @@ constexpr uint16_t SWITCH_MASK_SEQ_N[NUM_MASK_ITERS] = {
     13   // 0000 0000 0000 1101
 };
 
+// constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {
+//     (1 << 0),
+//     (3 << 2),
+//     (7 << 6),
+//     (10 << 9),
+//     (11 << 10),
+//     (13 << 12)
+// };
+
 constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {
-    (1 << 0),
-    (3 << 2),
-    (7 << 6),
-    (10 << 9),
-    (11 << 10),
-    (13 << 12)
+    1,
+    4,
+    64,
+    512,
+    1024,
+    4096,
 };
 
 static void ensure_output_directory() {
