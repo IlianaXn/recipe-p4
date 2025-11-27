@@ -35,11 +35,11 @@ constexpr uint16_t SWITCH_MASK_SEQ_N[NUM_MASK_ITERS] = {
 
 // constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {
 //     (1 << 0),
-//     (3 << 2),
-//     (7 << 6),
-//     (10 << 9),
-//     (11 << 10),
-//     (13 << 12)
+//     (1 << 2),
+//     (1 << 6),
+//     (1 << 9),
+//     (1 << 10),
+//     (1 << 12)
 // };
 
 constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {

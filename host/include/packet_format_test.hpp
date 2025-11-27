@@ -31,6 +31,7 @@ struct ipv4_h {
 struct recipe_h {
     uint16_t switch_mask;
     uint16_t pint;
+    uint8_t  reserved;
     uint8_t  xor_degree;
 };
 
