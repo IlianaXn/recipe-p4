@@ -1,34 +1,38 @@
-CXX      := g++
-CXXFLAGS := -std=c++17 -O2 -Wall -Wextra -Iinclude
+# Makefile
+
+CXX      ?= g++
+CXXFLAGS ?= -std=c++17 -O2 -Wall -Wextra
+LDFLAGS  ?=
+INCLUDES ?= -Isrc
 
 SRC_DIR  := src
-OBJ_DIR  := obj
 BIN_DIR  := bin
 
-HOST_SRCS := $(SRC_DIR)/host_loop.cpp $(SRC_DIR)/socket_utils.cpp
-HOST_OBJS := $(OBJ_DIR)/host_loop.o $(OBJ_DIR)/socket_utils.o
-HOST_BIN  := $(BIN_DIR)/host_loop
+COMMON_SRCS := $(SRC_DIR)/socket_utils.cpp
+COMMON_HDRS := $(SRC_DIR)/socket_utils.hpp $(SRC_DIR)/packet_format.hpp
 
-# Default target
-all: $(HOST_BIN)
+# Binaries we build
+BINS := $(BIN_DIR)/host_loop \
+        $(BIN_DIR)/host_test
 
-# Build binary
-$(HOST_BIN): $(HOST_OBJS) | $(BIN_DIR)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+.PHONY: all clean
 
-# Build individual object files
-$(OBJ_DIR)/%.o: $(SRC_DIR)/%.cpp | $(OBJ_DIR)
-	$(CXX) $(CXXFLAGS) -c $< -o $@
-
-# Ensure required folders exist
-$(OBJ_DIR):
-	mkdir -p $(OBJ_DIR)
+all: $(BIN_DIR) $(BINS)
 
 $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
-# Clean
-clean:
-	rm -rf $(OBJ_DIR) $(BIN_DIR)
+# -------------------------
+# host_loop
+# -------------------------
+$(BIN_DIR)/host_loop: $(SRC_DIR)/host_loop.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SRC_DIR)/host_loop.cpp $(COMMON_SRCS) $(LDFLAGS)
 
-.PHONY: all clean
+# -------------------------
+# host_test (NEW)
+# -------------------------
+$(BIN_DIR)/host_test: $(SRC_DIR)/host_test.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SRC_DIR)/host_test.cpp $(COMMON_SRCS) $(LDFLAGS)
+
+clean:
+	rm -rf $(BIN_DIR)
