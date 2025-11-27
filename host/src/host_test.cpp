@@ -38,8 +38,8 @@ constexpr uint16_t SWITCH_MASK_SEQ[NUM_MASK_ITERS] = {
     (3 << 2),
     (7 << 6),
     (10 << 9),
-    (11 << 12),
-    (13 << 15)
+    (11 << 10),
+    (13 << 12)
 };
 
 static void ensure_output_directory() {
