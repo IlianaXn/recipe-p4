@@ -9,9 +9,10 @@ SRC_DIR  := src
 BIN_DIR  := bin
 
 COMMON_SRCS := $(SRC_DIR)/socket_utils.cpp
-COMMON_HDRS := $(SRC_DIR)/socket_utils.hpp $(SRC_DIR)/packet_format.hpp
 
-# Binaries we build
+HOST_LOOP_HDRS := $(SRC_DIR)/socket_utils.hpp $(SRC_DIR)/packet_format.hpp
+HOST_TEST_HDRS := $(SRC_DIR)/socket_utils.hpp $(SRC_DIR)/packet_format_test.hpp
+
 BINS := $(BIN_DIR)/host_loop \
         $(BIN_DIR)/host_test
 
@@ -23,15 +24,15 @@ $(BIN_DIR):
 	mkdir -p $(BIN_DIR)
 
 # -------------------------
-# host_loop
+# host_loop (uses packet_format.hpp)
 # -------------------------
-$(BIN_DIR)/host_loop: $(SRC_DIR)/host_loop.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+$(BIN_DIR)/host_loop: $(SRC_DIR)/host_loop.cpp $(COMMON_SRCS) $(HOST_LOOP_HDRS)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SRC_DIR)/host_loop.cpp $(COMMON_SRCS) $(LDFLAGS)
 
 # -------------------------
-# host_test (NEW)
+# host_test (uses packet_format_test.hpp)
 # -------------------------
-$(BIN_DIR)/host_test: $(SRC_DIR)/host_test.cpp $(COMMON_SRCS) $(COMMON_HDRS)
+$(BIN_DIR)/host_test: $(SRC_DIR)/host_test.cpp $(COMMON_SRCS) $(HOST_TEST_HDRS)
 	$(CXX) $(CXXFLAGS) $(INCLUDES) -o $@ $(SRC_DIR)/host_test.cpp $(COMMON_SRCS) $(LDFLAGS)
 
 clean:
