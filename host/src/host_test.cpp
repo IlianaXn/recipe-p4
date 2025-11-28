@@ -20,7 +20,7 @@
 #include <vector>
 
 // Experiment parameters
-constexpr int NUM_PACKETS   = 5;   // number of distinct flows (pktid)
+constexpr int NUM_PACKETS   = 100;   // number of distinct flows (pktid)
 constexpr int MAX_ITER      = 15;  // safety stop based on hopid (TTL)
 constexpr int NUM_MASK_ITERS = 6;  // how many mask values we use per flow
 
