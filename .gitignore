@@ -1,0 +1,6 @@
+host/output
+
+.DS_Store
+.vscode
+host/obj
+host/bin
