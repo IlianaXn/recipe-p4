@@ -71,7 +71,7 @@ int main() {
     // 1) Send initial packets for pktid=1..NUM_PACKETS
     // --------------------------
     for (int p = 1; p <= NUM_PACKETS; ++p) {
-        uint16_t pktid = static_cast<uint16_t>(p+100);
+        uint16_t pktid = static_cast<uint16_t>(p);
 
         ethernet_h eth{};
         std::memcpy(eth.src, host_mac, 6);
@@ -157,17 +157,20 @@ int main() {
 
         if (rx.size() <
             sizeof(ethernet_h) + sizeof(ipv4_h) + sizeof(recipe_h)) {
+            std::cout << "[host] Received frame too short, continuing...\n";
             continue;
         }
 
         auto* rx_eth = reinterpret_cast<ethernet_h*>(rx.data());
         if (ntohs(rx_eth->ether_type) != 0x0800) {
+            std::cout << "[host] Received non-IPv4 frame, continuing...\n";
             continue;
         }
 
         auto* rx_ip = reinterpret_cast<ipv4_h*>(
             rx.data() + sizeof(ethernet_h));
         if (rx_ip->protocol != 146) {
+            std::cout << "[host] Received non-protocol-146 IPv4 frame, continuing...\n";
             continue;
         }
 
@@ -176,6 +179,7 @@ int main() {
 
         uint16_t rx_pktid = ntohs(rx_ip->identification);
         if (rx_pktid == 0 || rx_pktid > NUM_PACKETS) {
+            std::cout << "[host] Received pktid=" << rx_pktid << " out of range, continuing...\n";
             continue;
         }
 
