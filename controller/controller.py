@@ -18,7 +18,7 @@ sys.path.append(os.path.join(SDE_PYTHON3, 'tofino', 'bfrt_grpc'))
 
 MAX_HOPS=256
 NUM_PIPES=2
-MAX_DEGREE=8
+MAX_DEGREE=256
 
 import bfrt_grpc.client as gc
 from tabulate import tabulate
@@ -35,7 +35,7 @@ class LocalClient:
     def parse_monitored(self, paths):
         probs_a = [0]*self.num_hops*MAX_DEGREE
         probs_r = [0]*self.num_hops*MAX_DEGREE
-        for path in Path('params/').rglob(paths):
+        for path in Path('./').rglob(paths):
             path = str(path)
 
             with open(path, 'r') as f:
@@ -48,7 +48,6 @@ class LocalClient:
                     hop += 1
         return probs_a, probs_r
 
-
     def _setup(self):
         bfrt_client_id = 0
 
@@ -59,14 +58,17 @@ class LocalClient:
             num_tries = 1)
 
         self.bfrt_info = self.interface.bfrt_info_get()
+        self.interface.bind_pipeline_config(self.bfrt_info.p4_name_get())
         self.dev_tgt = gc.Target(0)
         print('The target runs the program ', self.bfrt_info.p4_name_get())
 
         # probabilities tables (these are max_degree * max_hops size)
         self.probs_a = self.bfrt_info.table_get('pipe.Ingress.probs_a')
         self.probs_r = self.bfrt_info.table_get('pipe.Ingress.probs_r')
-        
-        self.interface.bind_pipeline_config(self.bfrt_info.p4_name_get())
+
+        # idx table
+        self.base_idx = self.bfrt_info.table_get('pipe.Ingress.base_idx')
+        self.populate_idx()
         
         parsed_probs_a, parsed_probs_r = self.parse_monitored(self.probs_path)
         self.populate_probs(parsed_probs_a, parsed_probs_r)
@@ -91,6 +93,16 @@ class LocalClient:
 
         logging.info('Populated probabilities tables.')
        
+    def populate_idx(self):
+        logging.info('Populating index table...')
+
+        for hop in range(0, MAX_HOPS):
+            key = self.base_idx.make_key([gc.KeyTuple('meta.hop_count', hop)])
+            hop_degree = hop * MAX_DEGREE
+            data = self.base_idx.make_data([gc.DataTuple('idx', hop_degree)], 'Ingress.set_base')
+            self.base_idx.entry_add(self.dev_tgt, [key], [data])
+
+        logging.info('Populated index table.')
     
     def read_register(self, table, index_range, flags={"from_hw": False}):
         _keys = [table.make_key([gc.KeyTuple("$REGISTER_INDEX", index)]) for index in index_range]
@@ -126,4 +138,3 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     client = LocalClient(args.probs_path, args.num_hops)
-    client.get_gen_info()

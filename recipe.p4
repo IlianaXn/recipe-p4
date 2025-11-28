@@ -47,8 +47,6 @@ parser IngressParser(packet_in        pkt,
         pkt.extract(ig_intr_md);
         pkt.advance(PORT_METADATA_SIZE);
 
-        meta.hop_count = 0;
-        meta.idx = 0;
         transition parse_ethernet;
     }
     
@@ -111,8 +109,19 @@ control Ingress(
         ig_tm_md.ucast_egress_port = ig_intr_md.ingress_port;
     }
 
-    action compute_base() {
-        meta.idx = (bit<16>) meta.hop_count * MAX_DEGREE;
+    action set_base(bit<16> idx){
+        meta.idx = idx;
+    }
+
+    table base_idx {
+        key = {
+            meta.hop_count: exact;
+        }
+        actions = {
+            set_base;
+        }
+        size = 256;
+        default_action = set_base(0);
     }
 
     Register<bit<32>, bit<16>>(GLOBAL_TABLE_ENTRIES, 0) probs_a;
@@ -139,15 +148,9 @@ control Ingress(
     }
 
     apply {
-        // find the switch id (hop) in the path
-        if (hdr.ipv4.isValid()){
-            meta.hop_count = 255 - hdr.ipv4.ttl;
-        }
-        else if (hdr.ipv6.isValid()){
-            meta.hop_count = 255 - hdr.ipv6.hop_limit;
-        }
         // recipe header
         if (hdr.ipv4.isValid()){
+            meta.hop_count = 255 - hdr.ipv4.ttl;
             hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
             meta.hash_id = hash_v4.get({
                         hdr.ipv4.src_addr,
@@ -158,7 +161,7 @@ control Ingress(
             });
         }
         else if (hdr.ipv6.isValid()){
-            hdr.ipv6.hop_limit = hdr.ipv6.hop_limit - 1;
+            meta.hop_count = 255 - hdr.ipv6.hop_limit;
             meta.hash_id = hash_v6.get({
                         hdr.ipv6.src_addr[127:96],
                         hdr.ipv6.src_addr[95:64],
@@ -171,19 +174,19 @@ control Ingress(
                         hdr.ipv6.next_hdr,
                         hdr.ipv6.flow_label,
                         meta.hop_count
-            });
+            });    
         }
+
+        base_idx.apply();
         set_mirror_port();
         bit<32> a_prob;
         bit<32> r_prob;
         bit<16> row;
         bit<16> column;
-        bit<16> idx;
 
-        compute_base();
-        meta.idx = meta.idx + (bit<16>) hdr.recipe.xor_degree;
-        meta.a_prob = read_probs_a.execute(idx);
-        meta.r_prob = read_probs_r.execute(idx);
+        meta.idx = meta.idx + (bit<16>) hdr.recipe.xor_degree; 
+        meta.a_prob = read_probs_a.execute(meta.idx);
+        meta.cum_prob = read_probs_r.execute(meta.idx);
         if (!hdr.recipe.isValid()){
             hdr.recipe.setValid();
             hdr.recipe.pint = 0;
@@ -198,17 +201,28 @@ control Ingress(
         }
         
         if (hdr.recipe.isValid()){
-            
-            diff(meta.a_prob, meta.hash_id);
-            if ((meta.hash_id[31:31] == 0 && meta.res[31:31] == 1) || (meta.hash_id[31:31] == 1 && meta.res[31:31] == 0)){
+            diff(meta.hash_id, meta.a_prob);
+            bit<1> msb;
+            if ((meta.hash_id[31:31] == 0 && meta.a_prob[31:31] == 0) || (meta.hash_id[31:31] == 1 && meta.a_prob[31:31] == 1)){
+                msb = 1;
+            }
+            else{
+                msb = 0;
+            }
+            if ((meta.hash_id[31:31] == 0 && meta.a_prob[31:31] == 1) || (msb == 1 && meta.res[31:31] == 1)){
                 hdr.recipe.pint = hdr.recipe.pint ^ (bit<16>) hdr.recipe.switch_id;
                 hdr.recipe.xor_degree = hdr.recipe.xor_degree + 1;
             }
             else{
-                bit<32> temp;
-                temp = meta.a_prob +  meta.r_prob;
-                diff(temp, meta.hash_id);
-                if ((meta.hash_id[31:31] == 0 && meta.res[31:31] == 1) || (meta.hash_id[31:31] == 1 && meta.res[31:31] == 0)){
+                diff(meta.cum_prob, meta.hash_id);
+                bit<1> msb_r;
+                if ((meta.cum_prob[31:31] == 0 && meta.hash_id[31:31] == 0) || (meta.cum_prob[31:31] == 1 && meta.hash_id[31:31] == 1)){
+                    msb_r = 1;
+                }
+                else{
+                    msb_r = 0;
+                }
+                if ((meta.hash_id[31:31] == 0 && meta.cum_prob[31:31] == 0) || (msb_r == 1 && meta.cum_prob[31:31] == 1)){
                     hdr.recipe.pint = (bit<16>) hdr.recipe.switch_id;
                     hdr.recipe.xor_degree = 1;
                 }

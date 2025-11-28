@@ -58,16 +58,17 @@ header ipv6_h {
 header recipe_h {
     bit<16> switch_id;
     bit<16> pint;
+    @padding bit<8> reserved;
     bit<8> xor_degree;
 }
 
 struct my_ingress_metadata_t {
-    bit<16> idx;
-    bit<8> hop_count;
     bit<32> hash_id;
     bit<32> a_prob;
-    bit<32> r_prob;
+    bit<32> cum_prob;
     bit<32> res;
+    bit<16> idx;
+    bit<8> hop_count;
 }
 
 struct my_ingress_headers_t {
