@@ -20,7 +20,7 @@
 #include <vector>
 
 // Experiment parameters
-constexpr int NUM_PACKETS = 2000;
+constexpr int NUM_PACKETS = 5000;
 constexpr int MAX_ITER    = 64;
 
 static void ensure_output_directory() {
@@ -62,8 +62,8 @@ int main() {
               << " (ifindex=" << ifindex << ")\n";
 
     // Flow for all packets
-    uint32_t src_ip = inet_addr("10.0.0.1");
-    uint32_t dst_ip = inet_addr("10.0.0.2");
+    uint32_t src_ip = inet_addr("100.0.0.1");
+    uint32_t dst_ip = inet_addr("200.0.0.1");
 
     std::vector<bool> done(NUM_PACKETS + 1, false);
 
@@ -71,7 +71,7 @@ int main() {
     // 1) Send initial packets for pktid=1..NUM_PACKETS
     // --------------------------
     for (int p = 1; p <= NUM_PACKETS; ++p) {
-        uint16_t pktid = static_cast<uint16_t>(p);
+        uint16_t pktid = static_cast<uint16_t>(p+100);
 
         ethernet_h eth{};
         std::memcpy(eth.src, host_mac, 6);
