@@ -20,8 +20,8 @@
 #include <vector>
 
 // Experiment parameters
-constexpr int NUM_PACKETS = 2500;
-constexpr int MAX_ITER    = 64;
+constexpr int NUM_PACKETS = 1;
+constexpr int MAX_ITER    = 6;
 
 static void ensure_output_directory() {
     struct stat st{};
