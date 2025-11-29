@@ -20,7 +20,7 @@
 #include <vector>
 
 // Experiment parameters
-constexpr int NUM_PACKETS = 1;
+constexpr int NUM_PACKETS = 6;
 constexpr int MAX_ITER    = 6;
 
 static void ensure_output_directory() {
