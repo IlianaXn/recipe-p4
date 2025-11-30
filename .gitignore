@@ -4,3 +4,4 @@ host/output
 .vscode
 host/obj
 host/bin
+*.csv

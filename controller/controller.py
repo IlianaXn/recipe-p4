@@ -37,14 +37,21 @@ class LocalClient:
         probs_r = [0]*self.num_hops*MAX_DEGREE
         for path in Path('./').rglob(paths):
             path = str(path)
-
+            print('Parsing monitored probabilities from file: ', path)
             with open(path, 'r') as f:
                 hop = 0
                 for line in f:
                     line = line.strip().split(',')
                     for degree in range(len(line)//2):
                         probs_a[hop*MAX_DEGREE + degree] = int(float(line[degree*2])*pow(2,32))
+                        # validate approximation is good
+                        assume_val = float(probs_a[hop*MAX_DEGREE + degree])/pow(2,32)
+                        if abs(assume_val - float(line[degree*2])) > 0.0001:
+                            print('Warning: approximation error too high for hop ', hop, ' degree ', degree)
                         probs_r[hop*MAX_DEGREE + degree] = int(float(line[degree*2 + 1])*pow(2,32))
+                        assume_val = float(probs_r[hop*MAX_DEGREE + degree])/pow(2,32)
+                        if abs(assume_val - float(line[degree*2 + 1])) > 0.0001:
+                            print('Warning: approximation error too high for hop ', hop, ' degree ', degree)
                     hop += 1
         return probs_a, probs_r
 

@@ -140,8 +140,10 @@ control Ingress(
         }
     };
 
-    Hash<bit<32>>(HashAlgorithm_t.CRC32) hash_v4;
-    Hash<bit<32>>(HashAlgorithm_t.CRC32) hash_v6;
+    Hash<bit<32>>(HashAlgorithm_t.RANDOM) pkt_hash_v4;
+    Hash<bit<32>>(HashAlgorithm_t.RANDOM) pkt_hash_v6;
+
+    Hash<bit<32>>(HashAlgorithm_t.RANDOM) hash_all;
 
     action diff(bit<32> a, bit<32> b){
         meta.res = a - b;
@@ -152,17 +154,16 @@ control Ingress(
         if (hdr.ipv4.isValid()){
             meta.hop_count = 255 - hdr.ipv4.ttl;
             hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
-            meta.hash_id = hash_v4.get({
+            meta.pkt_id = pkt_hash_v4.get({
                         hdr.ipv4.src_addr,
                         hdr.ipv4.dst_addr,
                         hdr.ipv4.protocol,
-                        hdr.ipv4.identification,
-                        meta.hop_count
-            });
+                        hdr.ipv4.identification
+                        });
         }
         else if (hdr.ipv6.isValid()){
             meta.hop_count = 255 - hdr.ipv6.hop_limit;
-            meta.hash_id = hash_v6.get({
+            meta.pkt_id = pkt_hash_v6.get({
                         hdr.ipv6.src_addr[127:96],
                         hdr.ipv6.src_addr[95:64],
                         hdr.ipv6.src_addr[63:32],
@@ -172,11 +173,13 @@ control Ingress(
                         hdr.ipv6.dst_addr[63:32],
                         hdr.ipv6.dst_addr[31:0],
                         hdr.ipv6.next_hdr,
-                        hdr.ipv6.flow_label,
-                        meta.hop_count
-            });    
+                        hdr.ipv6.flow_label
+                        }); 
         }
 
+
+        meta.hash_id = hash_all.get({meta.pkt_id, meta.hop_count});
+        
         base_idx.apply();
         set_mirror_port();
         bit<32> a_prob;
@@ -191,7 +194,6 @@ control Ingress(
             hdr.recipe.setValid();
             hdr.recipe.pint = 0;
             hdr.recipe.xor_degree = 0;
-            hdr.recipe.switch_id = 0;
             if (hdr.ipv4.isValid()){
                 hdr.ipv4.protocol = ip_protocol_t.RECIPE;
             }
@@ -210,7 +212,7 @@ control Ingress(
                 msb = 0;
             }
             if ((meta.hash_id[31:31] == 0 && meta.a_prob[31:31] == 1) || (msb == 1 && meta.res[31:31] == 1)){
-                hdr.recipe.pint = hdr.recipe.pint ^ (bit<16>) hdr.recipe.switch_id;
+                hdr.recipe.pint = hdr.recipe.pint ^ (bit<16>) meta.hop_count;
                 hdr.recipe.xor_degree = hdr.recipe.xor_degree + 1;
             }
             else{
@@ -222,8 +224,8 @@ control Ingress(
                 else{
                     msb_r = 0;
                 }
-                if ((meta.hash_id[31:31] == 0 && meta.cum_prob[31:31] == 0) || (msb_r == 1 && meta.cum_prob[31:31] == 1)){
-                    hdr.recipe.pint = (bit<16>) hdr.recipe.switch_id;
+                if ((meta.cum_prob[31:31] == 0 && meta.hash_id[31:31] == 1) || (msb_r == 1 && meta.res[31:31] == 1)){
+                    hdr.recipe.pint = (bit<16>) meta.hop_count;
                     hdr.recipe.xor_degree = 1;
                 }
             }
