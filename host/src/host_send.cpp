@@ -1,9 +1,9 @@
-// src/host_loop.cpp
+// src/host_send.cpp
 #include "packet_format.hpp"
 #include "socket_utils.hpp"
 
 #ifndef __linux__
-#error "host_loop.cpp can only be built/run on Linux (AF_PACKET). Use host_udp on macOS for testing."
+#error "host_send.cpp can only be built/run on Linux (AF_PACKET)."
 #endif
 
 #include <arpa/inet.h>
@@ -22,32 +22,12 @@
 
 // Experiment parameters
 constexpr int NUM_PACKETS = 500;
-constexpr int MAX_ITER    = 1;
-
-static void ensure_output_directory() {
-    struct stat st{};
-    if (stat("output", &st) == -1) {
-        if (mkdir("output", 0755) == 0) {
-            std::cout << "[host] Created output/ directory\n";
-        } else {
-            perror("[host] mkdir output");
-        }
-    }
-}
-
-// Helper: check if all packets are done
-static bool all_done(const std::vector<bool>& done) {
-    for (int i = 1; i <= NUM_PACKETS; ++i) {
-        if (!done[i]) return false;
-    }
-    return true;
-}
+constexpr int MAX_ITER    = 64;
 
 int main() {
-    ensure_output_directory();
 
-    // CHANGE this to the NIC connected to your Tofino
-    std::string ifname = "enp7s0np0";
+    // Change this to the NIC connected to Tofino
+    std::string ifname = "veth1";
 
     uint8_t host_mac[6]   = {0x00, 0x11, 0x22, 0x33, 0x44, 0x55};
     uint8_t tofino_mac[6] = {0x00, 0xaa, 0xbb, 0xcc, 0xdd, 0xee};
@@ -121,18 +101,6 @@ int main() {
         std::memcpy(frame.data() + sizeof(eth) + sizeof(ip),
                     &recipe, sizeof(recipe));
 
-        // Commented out file I/O to reduce packet drops
-        // // Per-packet CSV in output/
-        // std::string fname = "output/packet_" + std::to_string(pktid) + ".csv";
-        // std::ofstream packet_log(fname);
-        // if (!packet_log) {
-        //     std::cerr << "[host] Failed to open " << fname
-        //               << " for writing\n";
-        //     close(sockfd);
-        //     return 1;
-        // }
-        // packet_log << "hopid,ttl,pint,xor_degree\n";
-
         // Log initial packet (hopid=0, ttl=255)
         uint8_t  init_ttl   = ip.ttl;
         int      init_hopid = 255 - init_ttl;  // 0
@@ -145,11 +113,6 @@ int main() {
                   << " pint=" << init_pint
                   << " xor=" << static_cast<int>(init_xdeg) << "\n";
 
-        // packet_log << init_hopid << "," << static_cast<int>(init_ttl)
-        //            << "," << init_pint << ","
-        //            << static_cast<int>(init_xdeg) << "\n";
-        // packet_log.close();
-
         // Send initial frame
         if (!send_frame(sockfd, frame, ifindex, tofino_mac)) {
             std::cerr << "[host] Failed to send initial frame for pktid="
@@ -161,11 +124,6 @@ int main() {
         // Add delay between sends to avoid overwhelming the switch
         usleep(10000);  // 10ms delay between packets
     }
-
-    // --------------------------
-    // 2) Global receive/respond loop
-    // --------------------------
-    
 
     close(sockfd);
     return 0;

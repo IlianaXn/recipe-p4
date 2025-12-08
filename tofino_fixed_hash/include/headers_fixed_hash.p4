@@ -3,7 +3,6 @@ typedef bit<8> header_type_t;
 
 enum bit<16> ether_type_t {
     IPV4 = 0x0800,
-    IPV6 = 0x86DD
 }
 
 header ethernet_h {
@@ -20,7 +19,6 @@ header vlan_h {
 }
 
 typedef bit<32> ipv4_addr_t;
-typedef bit<128> ipv6_addr_t;
 
 enum bit<8> ip_protocol_t{
     UDP = 17, 
@@ -43,18 +41,6 @@ header ipv4_h {
     ipv4_addr_t dst_addr;
 }
 
-header ipv6_h {
-    bit<4> version;
-    bit<8> traffic_class;
-    bit<20> flow_label;
-    bit<16> payload_len;
-    ip_protocol_t next_hdr;
-    bit<8> hop_limit;
-    ipv6_addr_t src_addr;
-    ipv6_addr_t dst_addr;
-}
-
-
 header recipe_h {
     bit<16> pint;
     @padding bit<8> reserved;
@@ -62,12 +48,12 @@ header recipe_h {
 }
 
 struct my_ingress_metadata_t {
-    bit<32> pkt_id;
     bit<32> hash_id;
     bit<32> a_prob;
     bit<32> cum_prob;
     bit<32> res;
     bit<16> idx;
+    bit<16> pkt_id;
     bit<8> hop_count;
 }
 
@@ -75,7 +61,6 @@ struct my_ingress_headers_t {
     ethernet_h   ethernet;
     vlan_h[3]       vlan;
     ipv4_h       ipv4;
-    ipv6_h       ipv6;
     recipe_h        recipe;
 }
 
@@ -85,7 +70,6 @@ struct my_egress_metadata_t {
 struct my_egress_headers_t {
     ethernet_h ethernet;
     ipv4_h     ipv4;
-    ipv6_h     ipv6;
     recipe_h recipe;
 }
 

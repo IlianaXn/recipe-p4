@@ -1,0 +1,260 @@
+#include <core.p4>
+#include <tna.p4>
+
+#include "./include/constants.p4"
+#include "./include/headers_fixed_hash.p4"
+
+parser IngressParser(packet_in        pkt,
+    out my_ingress_headers_t          hdr,
+    out my_ingress_metadata_t         meta,
+    out ingress_intrinsic_metadata_t  ig_intr_md)
+{
+    state start {
+        pkt.extract(ig_intr_md);
+        pkt.advance(PORT_METADATA_SIZE);
+
+        transition parse_ethernet;
+    }
+    
+    state parse_ethernet {       
+        pkt.extract(hdr.ethernet);
+        transition select(hdr.ethernet.ether_type) {
+            0x8100 &&& 0xEFFF : parse_vlan_tag;
+            ether_type_t.IPV4 : parse_ipv4;
+            default : accept;
+        }
+    }
+
+    state parse_vlan_tag {
+        pkt.extract(hdr.vlan.next);
+        transition select(hdr.vlan.last.ether_type) {
+            0x8100: parse_vlan_tag;
+            ether_type_t.IPV4 : parse_ipv4;
+            default: reject;
+        }
+    }
+
+    state parse_ipv4 {
+        pkt.extract(hdr.ipv4);
+        transition select(hdr.ipv4.protocol) {
+            ip_protocol_t.RECIPE: parse_recipe;
+            default: accept;
+        }
+    }
+
+    state parse_recipe {
+        pkt.extract(hdr.recipe);
+        transition accept;
+    }
+}
+
+control Ingress(
+    inout my_ingress_headers_t                       hdr,
+    inout my_ingress_metadata_t                      meta,
+    in    ingress_intrinsic_metadata_t               ig_intr_md,
+    in    ingress_intrinsic_metadata_from_parser_t   ig_prsr_md,
+    inout ingress_intrinsic_metadata_for_deparser_t  ig_dprsr_md,
+    inout ingress_intrinsic_metadata_for_tm_t        ig_tm_md)
+{      
+    action drop_exit_ingress () {
+        ig_dprsr_md.drop_ctl = 1;
+        exit;
+    }
+
+    action set_mirror_port() {
+        ig_tm_md.ucast_egress_port = ig_intr_md.ingress_port;
+    }
+
+    action set_base(bit<16> idx){
+        meta.idx = idx;
+    }
+
+    table base_idx {
+        key = {
+            meta.hop_count: exact;
+        }
+        actions = {
+            set_base;
+        }
+        size = 256;
+        default_action = set_base(0);
+    }
+
+    action set_hash(bit<32> hash_id) {
+        meta.hash_id = hash_id;
+    }
+
+    table find_hash {
+        key = {
+            meta.hop_count: exact;
+            meta.pkt_id: exact;
+        }
+        actions = {
+            set_hash;
+        }
+        size = 550000;
+    }
+
+    Register<bit<32>, bit<16>>(GLOBAL_TABLE_ENTRIES, 0) probs_a;
+    RegisterAction<bit<32>, bit<16>, bit<32>>(probs_a)
+    read_probs_a = {
+        void apply(inout bit<32> value, out bit<32> rv) {
+            rv = value;
+        }
+    };
+
+    Register<bit<32>, bit<16>>(GLOBAL_TABLE_ENTRIES, 0) probs_cum;
+    RegisterAction<bit<32>, bit<16>, bit<32>>(probs_cum)
+    read_probs_cum = {
+        void apply(inout bit<32> value, out bit<32> rv) {
+            rv = value;
+        }
+    };
+
+    action diff(bit<32> a, bit<32> b){
+        meta.res = a - b;
+    }
+
+    apply {
+        // recipe header
+        if (hdr.ipv4.isValid()){
+            meta.hop_count = 255 - hdr.ipv4.ttl;
+            hdr.ipv4.ttl = hdr.ipv4.ttl - 1;
+            meta.pkt_id = hdr.ipv4.identification;
+        }
+        else {
+            ig_dprsr_md.drop_ctl = 1;
+            exit;
+        }
+
+        find_hash.apply();
+        
+        base_idx.apply();
+        set_mirror_port();
+
+        meta.idx = meta.idx + (bit<16>) hdr.recipe.xor_degree; 
+        meta.a_prob = read_probs_a.execute(meta.idx);
+        meta.cum_prob = read_probs_cum.execute(meta.idx);
+        if (!hdr.recipe.isValid()){
+            hdr.recipe.setValid();
+            hdr.recipe.pint = 0;
+            hdr.recipe.xor_degree = 0;
+            hdr.ipv4.protocol = ip_protocol_t.RECIPE;
+        }
+        
+        if (hdr.recipe.isValid()){
+            diff(meta.hash_id, meta.a_prob);
+            bit<1> msb;
+            if ((meta.hash_id[31:31] == 0 && meta.a_prob[31:31] == 0) || (meta.hash_id[31:31] == 1 && meta.a_prob[31:31] == 1)){
+                msb = 1;
+            }
+            else{
+                msb = 0;
+            }
+            if ((meta.hash_id[31:31] == 0 && meta.a_prob[31:31] == 1) || (msb == 1 && meta.res[31:31] == 1)){
+                hdr.recipe.pint = hdr.recipe.pint ^ (bit<16>) meta.hop_count;
+                hdr.recipe.xor_degree = hdr.recipe.xor_degree + 1;
+            }
+            else{
+                diff(meta.cum_prob, meta.hash_id);
+                bit<1> msb_r;
+                if ((meta.cum_prob[31:31] == 0 && meta.hash_id[31:31] == 0) || (meta.cum_prob[31:31] == 1 && meta.hash_id[31:31] == 1)){
+                    msb_r = 1;
+                }
+                else{
+                    msb_r = 0;
+                }
+                if ((meta.cum_prob[31:31] == 0 && meta.hash_id[31:31] == 1) || (msb_r == 1 && meta.res[31:31] == 1)){
+                    hdr.recipe.pint = (bit<16>) meta.hop_count;
+                    hdr.recipe.xor_degree = 1;
+                }
+            }
+        }
+    }
+}
+
+control IngressDeparser(packet_out pkt,
+    inout my_ingress_headers_t                       hdr,
+    in    my_ingress_metadata_t                      meta,
+    in    ingress_intrinsic_metadata_for_deparser_t  ig_dprsr_md)
+{
+    apply {
+        pkt.emit(hdr);
+    }
+}
+
+parser EgressParser(packet_in        pkt,
+    out my_egress_headers_t          hdr,
+    out my_egress_metadata_t         meta,
+    out egress_intrinsic_metadata_t  eg_intr_md)
+{
+    state start {
+        pkt.extract(eg_intr_md);
+        transition parse_ethernet;
+    }
+
+    state parse_ethernet {
+        pkt.extract(hdr.ethernet);
+        transition select (hdr.ethernet.ether_type) {
+            ether_type_t.IPV4 : parse_ipv4;
+            default : accept;
+        }
+    }
+
+    state parse_ipv4 {
+        pkt.extract(hdr.ipv4);
+        transition accept;
+    }
+
+}
+
+control Egress(
+    inout my_egress_headers_t                          hdr,
+    inout my_egress_metadata_t                         meta,
+    in    egress_intrinsic_metadata_t                  eg_intr_md,
+    in    egress_intrinsic_metadata_from_parser_t      eg_prsr_md,
+    inout egress_intrinsic_metadata_for_deparser_t     eg_dprsr_md,
+    inout egress_intrinsic_metadata_for_output_port_t  eg_oport_md)
+{
+    apply {}
+}
+
+control EgressDeparser(packet_out pkt,
+    inout my_egress_headers_t                       hdr,
+    in    my_egress_metadata_t                      meta,
+    in    egress_intrinsic_metadata_for_deparser_t  eg_dprsr_md)
+{
+    Checksum() ipv4_checksum;
+    apply {
+
+        if (hdr.ipv4.isValid())
+        {
+            hdr.ipv4.hdr_checksum = ipv4_checksum.update({
+                hdr.ipv4.version,
+                hdr.ipv4.ihl,
+                hdr.ipv4.tos,
+                hdr.ipv4.total_len,
+                hdr.ipv4.identification,
+                hdr.ipv4.flags,
+                hdr.ipv4.frag_offset,
+                hdr.ipv4.ttl,
+                hdr.ipv4.protocol,
+                hdr.ipv4.src_addr,
+                hdr.ipv4.dst_addr
+            });
+        }
+
+        pkt.emit(hdr);
+    }
+}
+
+Pipeline(
+    IngressParser(),
+    Ingress(),
+    IngressDeparser(),
+    EgressParser(),
+    Egress(),
+    EgressDeparser()
+) pipe;
+
+Switch(pipe) main;

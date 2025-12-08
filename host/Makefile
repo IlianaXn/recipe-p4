@@ -5,25 +5,25 @@ SRC_DIR  := src
 OBJ_DIR  := obj
 BIN_DIR  := bin
 
-# --- host_loop ---
-HOST_LOOP_SRCS := $(SRC_DIR)/host_loop.cpp $(SRC_DIR)/socket_utils.cpp
-HOST_LOOP_OBJS := $(OBJ_DIR)/host_loop.o $(OBJ_DIR)/socket_utils.o
-HOST_LOOP_BIN  := $(BIN_DIR)/host_loop
+# --- host_receive ---
+HOST_RECEIVE_SRCS := $(SRC_DIR)/host_receive.cpp $(SRC_DIR)/socket_utils.cpp
+HOST_RECEIVE_OBJS := $(OBJ_DIR)/host_receive.o $(OBJ_DIR)/socket_utils.o
+HOST_RECEIVE_BIN  := $(BIN_DIR)/host_receive
 
-# --- host_test ---
-HOST_TEST_SRCS := $(SRC_DIR)/host_test.cpp $(SRC_DIR)/socket_utils.cpp
-HOST_TEST_OBJS := $(OBJ_DIR)/host_test.o $(OBJ_DIR)/socket_utils.o
-HOST_TEST_BIN  := $(BIN_DIR)/host_test
+# --- host_send ---
+HOST_SEND_SRCS := $(SRC_DIR)/host_send.cpp $(SRC_DIR)/socket_utils.cpp
+HOST_SEND_OBJS := $(OBJ_DIR)/host_send.o $(OBJ_DIR)/socket_utils.o
+HOST_SEND_BIN  := $(BIN_DIR)/host_send
 
 # Default target: build both binaries
-all: $(HOST_LOOP_BIN) $(HOST_TEST_BIN)
+all: $(HOST_RECEIVE_BIN) $(HOST_SEND_BIN)
 
 # Build host_loop binary
-$(HOST_LOOP_BIN): $(HOST_LOOP_OBJS) | $(BIN_DIR)
+$(HOST_RECEIVE_BIN): $(HOST_RECEIVE_OBJS) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 # Build host_test binary
-$(HOST_TEST_BIN): $(HOST_TEST_OBJS) | $(BIN_DIR)
+$(HOST_SEND_BIN): $(HOST_SEND_OBJS) | $(BIN_DIR)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 # Build individual object files (works for host_loop.o, host_test.o, socket_utils.o)
