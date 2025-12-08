@@ -32,7 +32,7 @@ class LocalClient:
 
         self._setup()
 
-    def parse_monitored(self, paths):
+    def parse_monitored(self, path):
         probs_a = [0]*self.num_hops*MAX_DEGREE
         probs_cum = [0]*self.num_hops*MAX_DEGREE
         
@@ -55,7 +55,7 @@ class LocalClient:
                 hop += 1
         return probs_a, probs_cum
 
-        def populate_probs(self, probs_a, probs_cum):
+    def populate_probs(self, probs_a, probs_cum):
         logging.info('Populating probabilities tables...')
 
         keys = []
@@ -125,3 +125,6 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     client = LocalClient(args.probs_path, args.num_hops)
+
+    # example usage:
+    # python3 controller.py --probs_path ../APA/robust64_1.txt --num_hops 64

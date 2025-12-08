@@ -19,6 +19,7 @@
 #include <iostream>
 #include <string>
 #include <vector>
+#include <set>
 
 // Experiment parameters
 constexpr int NUM_PACKETS = 500;
@@ -76,6 +77,7 @@ int main() {
     }
 
     std::vector<bool> done(NUM_PACKETS + 1, false);
+    std::set<std::pair<uint16_t, int>> seen_packets;
 
     // global log file for all packets
     std::ofstream global_log("output/host_global_log.csv");
@@ -134,10 +136,15 @@ int main() {
         printf("[host] recv pktid=%u hopid=%d ttl=%u pint=%u xor=%u\n",
                rx_pktid, hopid, ttl, pint, xor_deg);
 
-        // save info to logs
-        global_log << rx_pktid << "," << hopid << ","
-                   << static_cast<int>(ttl) << "," << pint << ","
-                   << static_cast<int>(xor_deg) << "\n";
+        // check if we've seen this (pktid, hopid) combination before
+        auto packet_key = std::make_pair(rx_pktid, hopid);
+        if (seen_packets.find(packet_key) == seen_packets.end()) {
+            // first time seeing this combination, log it
+            global_log << rx_pktid << "," << hopid << ","
+                       << static_cast<int>(ttl) << "," << pint << ","
+                       << static_cast<int>(xor_deg) << "\n";
+            seen_packets.insert(packet_key);
+        }
 
         // Stop echoing this pktid once TTL is 0 or hopid >= MAX_ITER
         if (ttl == 0 || hopid >= MAX_ITER) {
