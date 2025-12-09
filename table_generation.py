@@ -19,18 +19,18 @@ def recipe_hash_v4(pktid: int, hopid: int) -> int:
     return mix32(combined)
 
 def main():
-    output_file = "recipe_hash_2000x254.csv"
+    output_file = "recipe_hash_2000x256.csv"
 
     with open(output_file, "w", newline="") as f:
         writer = csv.writer(f)
 
         # rows = pktid (1..2000)
-        # cols = hopid (1..254)
+        # cols = hopid (0..255)
         for pktid in range(1, 2000 + 1):
-            row = [recipe_hash_v4(pktid, hopid)&0xFFFFFFFF for hopid in range(1, 256 + 1) ]
+            row = [recipe_hash_v4(pktid, hopid)&0xFFFFFFFF for hopid in range(0, 255 + 1) ]
             writer.writerow(row)
 
-    print(f"Wrote {output_file} (2000 rows × 254 columns)")
+    print(f"Wrote {output_file} (2000 rows × 256 columns)")
 
 if __name__ == "__main__":
     main()

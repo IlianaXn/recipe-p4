@@ -15,7 +15,7 @@ from typing import Dict, List, Set, Tuple, Optional
 MAX_DEGREE_DEFAULT = 256
 SRC_IP = "10.0.0.1"
 DST_IP = "10.0.0.2"
-IP_PROTO_RECIPE = 146  # from host_loop.cpp / headers.p4
+IP_PROTO_RECIPE = 146  # from headers.p4
 
 
 # -------------------------------------------------------------------
